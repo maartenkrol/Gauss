@@ -7,3 +7,5 @@ This package presents educational material to explore the Gaussian Plume model, 
 * Determine concentrations downwind of a stack
 * Investigate the influence of the atmospheric stability
 * Extend the GPM with terms for ground reflection and line sources
+
+The main document is a python Notebook *Gaussian Plume.ipynb*, which is supported by a python module *plot_gauss.py*.
