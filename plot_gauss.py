@@ -66,7 +66,7 @@ class plot_gauss:
             align_items='stretch',
             width='70%'
             ))
-        self.np   = BoundedIntText( value=1000, min=100, max=10000, step=100, description='npoints:')
+        self.np   = BoundedIntText( value=1000, min=100, max=3000, step=100, description='npoints:')
         self.xpos = BoundedIntText( value=3000, min=1, max=11000, step=1, description='x-position:')
         self.ypos = BoundedIntText( value=0, min=-2700, max=2700, step=1, description='y-position:')
         self.zpos = BoundedIntText( value=50, min=0, max=3200, step=1, description='z-position:')
