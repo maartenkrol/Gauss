@@ -2,6 +2,9 @@ import pylab as pl
 import numpy as np
 import matplotlib.colors as colors
 import glob,os,sys
+from bokeh.io import push_notebook, show, output_notebook
+from bokeh.layouts import column, row
+from bokeh.plotting import figure
 from datetime import *
 try:
     from ipywidgets import *
@@ -42,6 +45,7 @@ class plot_gauss:
         self.stability = Dropdown(options=['stable','neutral','unstable'],value='unstable',description='Stability:')
         self.units = Dropdown(options=['kg/m3','ug/m3'],value='ug/m3',description='Unit:')
         self.wdoit = ToggleButton(description='Calculate',value=False)
+        self.output = Checkbox( value=False , description='1D:')
         form_item_layout = Layout(
             display='flex',
             flex_flow='row',
@@ -57,7 +61,8 @@ class plot_gauss:
         form_items = [
             Box([Label(value='Q : Strength of the source'),self.sstrength,self.unit0 ], layout = form_item_layout),
             Box([Label(value='H : Height of the source ') ,self.sheight,self.unit1], layout = form_item_layout),
-            Box([Label(value='u : Wind speed at source ') ,self.wind,   self.unit2], layout = form_item_layout)
+            Box([Label(value='u : Wind speed at source ') ,self.wind,   self.unit2], layout = form_item_layout),
+            Box([Label(value= ' '), self.output, Label(value=' ')], layout = form_item_layout)
             ]
         self.form = Box(form_items, layout=Layout(
             display='flex',
@@ -91,6 +96,7 @@ class plot_gauss:
             width='70%'
             ))
         self.set_visibility(imode)
+        output_notebook()
         display(self.form,self.form2)
         wmain = interact(self.xplot,doit = self.wdoit)
 
@@ -111,20 +117,28 @@ class plot_gauss:
         xp = self.xpos.value
         yp = self.ypos.value
         zp = self.zpos.value
-        xmin = max(xp-n*dx/2,dx)
+        xmin = xp-n*dx/2
         xmax = xp+n*dx/2
         ymin = yp-n*dy/2
         ymax = yp+n*dy/2
-        zmin = max(zp-n*dz/2,0)
+        zmin = zp-n*dz/2
         zmax = zp+n*dz/2
-        self.x = np.linspace(xmin,xmax, 1+int((xmax-xmin)/dx))
+        x = np.linspace(xmin,xmax, 1+int((xmax-xmin)/dx))
         self.y = np.linspace(ymin,ymax, 1+int((ymax-ymin)/dy))
-        self.z = np.linspace(zmin,zmax, 1+int((zmax-zmin)/dz))
+        z = np.linspace(zmin,zmax, 1+int((zmax-zmin)/dz))
+        self.x = x[np.where(x>0)]
+        self.z = z[np.where(z>=0)]
+        self.ixpos = np.where(self.x==xp)[0][0]
+        self.iypos = np.where(self.y==yp)[0][0]
+        self.izpos = np.where(self.z==zp)[0][0]
         #print(xmin,xmax,self.x)
         #print(ymin,ymax,self.y)
         #print(zmin,zmax,self.z)
         yz,xz,xy = self.gauss()
-        self.plot_gauss(yz,xz,xy)
+        if self.output.value:
+            self.plot_gauss1D(yz,xz,xy)
+        else:
+            self.plot_gauss(yz,xz,xy)
         #self.wdoit.value=False
         return
 
@@ -270,6 +284,48 @@ class plot_gauss:
         #    axs.set_xlabel('x [m]', fontsize = 12)
             
         pl.show(fig)
+
+    def plot_gauss1D(self, yz,xz,xy):
+        ### plot the values as 1D plots. For yz use plot from surface to zmax, for xz from x--> xmax, and for xy plot from ymin-ymax 
+        # setup plot...
+        pz = figure(title="at x,y = %.i m, %.i m"%(self.xpos.value,self.ypos.value), plot_height=300, plot_width=300)
+        py = figure(title="at y,z = %.i m, %.i m"%(self.ypos.value,self.zpos.value), plot_height=300, plot_width=300)
+        px = figure(title="at x,z = %.i m, %.i m"%(self.xpos.value,self.zpos.value), plot_height=300, plot_width=300)
+        if self.units.value == 'ug/m3':
+            scale = 1e9
+        else:
+            scale = 1.0
+        A, B = self.y*1e-3, self.z*1e-3
+        yz=yz[0] 
+        if self.type.value == 'line+reflection':
+            ssum = yz[0,1:-2].sum() + 0.5*yz[0,0] + 0.5*yz[0,-1]
+            print('Integral c*u*dz %8.1f kg/(m.s) '%(ssum*self.dzpos.value*self.wind.value/scale))
+        else:
+            ssum = yz[1:-2,1:-2].sum()+0.5*(yz[0,:].sum() + yz[0,-1].sum() + yz[:,0].sum() + yz[:,-1].sum())   # now we only count the corners double!
+            print('Integral c*u*dz*dy %8.1f kg/s '%(ssum*self.dypos.value*self.dzpos.value*self.wind.value/scale))
+        if yz.max() > 1e-2:
+            B = self.z*1e-3
+            pz.line(yz[self.iypos,:],B,line_width = 2)
+            pz.yaxis.axis_label = 'z [km]'
+            pz.xaxis.axis_label = 'C [ug/m3]'
+            flegend = 'x,y = %.i m, %.i m'%(self.xpos.value,self.ypos.value)
+        A = self.x*1e-3
+        xz = xz[:,0,:]
+        if xz.max() > 1e-2:
+            flegend = 'y,z = %.i m, %.i m'%(self.ypos.value,self.zpos.value)
+            px.line(A, xz[:,self.izpos],line_width = 2)
+            px.xaxis.axis_label = 'x [km]'
+            px.yaxis.axis_label = 'C [ug/m3]'
+        A = self.y*1e-3
+        xy = xy[:,:,0]
+        if xy.max() > 1e-2:
+            flegend = 'x,z = %.i m, %.i m'%(self.xpos.value,self.zpos.value)
+            py.line(A, xy[self.ixpos,:],line_width = 2)
+            py.xaxis.axis_label = 'y [km]'
+            py.yaxis.axis_label = 'C [ug/m3]'
+        show(row(pz,px,py), notebook_hanle=True)
+        push_notebook()
+
 
     def set_visibility(self,imode):
         if imode == 1:
