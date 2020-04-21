@@ -236,7 +236,7 @@ class plot_gauss:
         if yz.max() > 1e-2:
             axs = axsn[0]
             im = axs.pcolormesh(A, B, np.transpose(yz), norm=colors.LogNorm(vmin= 1e-2, vmax=yz.max() ))
-            axs.set_title("yz plane iat location x = %.i m"%(self.xpos.value))
+            axs.set_title("yz plane at location x = %.i m"%(self.xpos.value))
             cb = fig.colorbar(im, ax = axs, orientation='horizontal')
             cb.ax.tick_params(labelsize=12) 
             cb.ax.set_xlabel('C [ug/m3]', fontsize=12)
